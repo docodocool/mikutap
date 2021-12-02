@@ -9,7 +9,9 @@ class MikuTap {
     this.animations = animations;
     this.audios = audios;
     this.bgm = bgm;
+    this.curColorIndex = 0;
     this.app = null;
+    this.appBackground = null;
     this.init();
   }
 
@@ -21,37 +23,141 @@ class MikuTap {
     PIXI.utils.sayHello(type);
     this.initApp();
     this.initView();
+    this.initBackground();
   }
   initApp() {
     this.app = new PIXI.Application({
+      width: 600,
+      height: 600,
       autoDensity: true,
       // 抗锯齿
       antialias: true,
       resolution: devicePixelRatio,
     });
+    console.log("app: ", this.app);
   }
   initView() {
     if (!this.app) throw new Error("fail to get app instance");
     this.appWrapper.appendChild(this.app.view);
     this.app.stage.sortableChildren = true;
+    this.app.view.addEventListener("mousedown", (e) => {
+      const { offsetX, offsetY } = e;
+      // this.drawRect(offsetX, offsetY);
+      this.drawSector(offsetX, offsetY);
+    });
+  }
+  initBackground() {
+    if (!this.app) throw new Error("fail to get app instance");
+
+    // reset
+    if (this.appBackground) {
+      this.app.stage.removeChild(this.appBackground);
+    }
+
+    this.appBackground = new PIXI.Graphics();
+    this.appBackground.beginFill(colorList[0]);
+    // x, y, radius, sides, rotation
+    this.appBackground.drawRect(
+      0,
+      0,
+      2 * Math.max(this.app.screen.width, this.app.screen.height),
+      2 * Math.max(this.app.screen.width, this.app.screen.height)
+    );
+
+    this.app.stage.addChild(this.appBackground);
+    console.log("appbg: ", this.appBackground);
+  }
+  getRandomColor() {
+    // "0x" + Math.floor(Math.random() * 16777215).toString(16);
+    let randomIndex = Math.floor(Math.random() * (colorList.length - 1));
+    if (
+      randomIndex === this.curColorIndex ||
+      colorList[randomIndex].toString() ===
+        this.appBackground.fill.color.toString()
+    ) {
+      if (randomIndex === colorList.length - 1) {
+        randomIndex -= 1;
+      } else {
+        randomIndex += 1;
+      }
+    }
+    this.curColorIndex = randomIndex;
+    return colorList[randomIndex];
+  }
+  drawRect(x, y) {
     let rectangle = new PIXI.Graphics();
     rectangle.lineStyle(4, 0xff3300, 1);
     rectangle.beginFill(0x66ccff);
-    rectangle.drawRect(0, 0, 64, 64);
+    // offsetX, offsetY, width, height, 相对于x, y偏移
+    rectangle.drawRect(-32, -32, 64, 64);
+    rectangle.position = { x: x, y: y };
     rectangle.endFill();
-    rectangle.x = 170;
-    rectangle.y = 170;
-    this.app.stage.addChild(rectangle);
     gsap.to(rectangle, {
       rotation: Math.PI * 2,
       width: rectangle.width * 2,
       height: rectangle.height * 2,
       alpha: 0,
-      duration: 1,
-      x: 50,
+      duration: 0.5,
       onComplete: () => {
-        app.stage.removeChild(shape);
+        this.app.stage.removeChild(rectangle);
       },
     });
+    this.app.stage.addChild(rectangle);
+  }
+  drawSector(x, y) {
+    const color = this.getRandomColor();
+    let startAngle = random(0, 2 * Math.PI);
+    let radius = random(60, 100);
+    let direction = Math.random() > 0.5 ? true : false;
+    const updateSector = (sector, color, radius, direction) => {
+      sector.clear();
+      sector.beginFill(color);
+      sector.moveTo(0, 0);
+      // cx, cy, radius, startAngle, endAngle, 逆时针;
+      sector.arc(0, 0, radius, sector.startAngle, sector.endAngle, direction);
+    };
+    let sector = new PIXI.Graphics();
+    sector.startAngle = sector.endAngle = startAngle;
+    updateSector(sector, color, radius, direction);
+    sector.position = { x: x, y: y };
+    this.app.stage.addChild(sector);
+
+    const timeLine = gsap.timeline();
+    timeLine
+      .to(sector, {
+        duration: 0.8,
+        endAngle: startAngle + (direction ? -2 : 2) * Math.PI,
+        onUpdateParams: [sector, color, radius, direction],
+        onUpdate: updateSector,
+        ease: Power3.easeOut,
+      })
+      .to(sector, {
+        duration: 0.8,
+        startAngle: startAngle + (direction ? -2 : 2) * Math.PI,
+        onUpdateParams: [sector, color, radius, direction],
+        onUpdate: updateSector,
+        ease: Power3.easeOut,
+        onComplete: () => {
+          this.app.stage.removeChild(sector);
+        },
+      });
   }
 }
+const random = (min, max) => Math.random() * (max - min) + min;
+const colorList = [
+  0x88cccc, 0xfc3e77, 0xd49e9e, 0xcceeee, 0x594f57, 0x888899, 0xec5685,
+  0x312b2d, 0x8ad9ec, 0x109fb1, 0x0eaa9d, 0x9ccfe7, 0x977fd7, 0xf5a9cb,
+  0xf5d4c8, 0xffffc2, 0xfa6d6f, 0xfa8f6f,
+];
+// @pixi/graphics-extras
+const drawRegularPolygon = (x, y, radius, sides, rotation = 0) => {
+  sides = Math.max(sides | 0, 3);
+  let startAngle = (-1 * Math.PI) / 2 + rotation;
+  let delta = (Math.PI * 2) / sides;
+  let polygon = [];
+  for (let i = 0; i < sides; i++) {
+    let angle = i * delta + startAngle;
+    polygon.push(x + radius * Math.cos(angle), y + radius * Math.sin(angle));
+  }
+  return PIXI.drawPolygon(polygon);
+};
