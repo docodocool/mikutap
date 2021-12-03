@@ -1,3 +1,3 @@
 # mikutap
 
-mikutap based on PixiJS and TweenMax
+Mikutap based on PixiJS and GSAP
