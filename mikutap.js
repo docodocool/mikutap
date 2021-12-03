@@ -24,6 +24,7 @@ class MikuTap {
     this.initApp();
     this.initView();
     this.initBackground();
+    this.bindEvent();
   }
   initApp() {
     this.app = new PIXI.Application({
@@ -40,41 +41,73 @@ class MikuTap {
     if (!this.app) throw new Error("fail to get app instance");
     this.appWrapper.appendChild(this.app.view);
     this.app.stage.sortableChildren = true;
-    this.app.view.addEventListener("mousedown", (e) => {
-      const { offsetX, offsetY } = e;
-      // this.drawRect(offsetX, offsetY);
-      this.drawSector(offsetX, offsetY);
-    });
   }
   initBackground() {
-    if (!this.app) throw new Error("fail to get app instance");
-
-    // reset
     if (this.appBackground) {
       this.app.stage.removeChild(this.appBackground);
     }
-
     this.appBackground = new PIXI.Graphics();
-    this.appBackground.beginFill(colorList[0]);
-    // x, y, radius, sides, rotation
-    this.appBackground.drawRect(
-      0,
-      0,
-      2 * Math.max(this.app.screen.width, this.app.screen.height),
-      2 * Math.max(this.app.screen.width, this.app.screen.height)
-    );
+    this.appBackground
+      .beginFill(this.getRandomColor())
+      .drawRect(0, 0, this.app.screen.width, this.app.screen.height);
+    this.appBackground.zIndex = -1;
 
     this.app.stage.addChild(this.appBackground);
     console.log("appbg: ", this.appBackground);
   }
+  bindEvent() {
+    this.app.view.addEventListener("mousedown", (e) => {
+      const { width, height } = this.app.screen;
+      const offsetX = width / 2;
+      const offsetY = height / 2;
+      this.drawRect(offsetX, offsetY);
+      this.drawSector(offsetX, offsetY);
+      this.changeBackground();
+    });
+  }
+  changeBackground() {
+    const newBackground = new PIXI.Graphics();
+    const newBackgroundColor = this.getRandomColor();
+    const randomSeed = Math.random();
+    const { width, height } = this.app.screen;
+    newBackground.beginFill(newBackgroundColor).drawRect(0, 0, width, height);
+    let position = { x: 0, y: 0 };
+    switch (true) {
+      case randomSeed < 0.25:
+        position = { x: -2 * width, y: -2 * height };
+        break;
+      case randomSeed >= 0.25 && randomSeed < 0.5:
+        position = { x: 2 * width, y: -2 * height };
+        break;
+      case randomSeed >= 0.5 && randomSeed < 0.75:
+        position = { x: -2 * width, y: 2 * height };
+        break;
+      case randomSeed >= 0.75:
+        position = { x: 2 * width, y: 2 * height };
+        break;
+    }
+    newBackground.position = position;
+    newBackground.zIndex = -1;
+    this.app.stage.addChild(newBackground);
+    const rotation = random(0, 2 * Math.PI);
+    const timeLine = gsap.timeline();
+    timeLine.set(newBackground, { rotation }).to(newBackground, {
+      duration: 0.8,
+      rotation: 0,
+      x: 0,
+      y: 0,
+      onComplete: () => {
+        this.appBackground
+          .beginFill(newBackgroundColor)
+          .drawRect(0, 0, this.app.screen.width, this.app.screen.height);
+        this.app.stage.removeChild(newBackground);
+      },
+    });
+  }
   getRandomColor() {
     // "0x" + Math.floor(Math.random() * 16777215).toString(16);
     let randomIndex = Math.floor(Math.random() * (colorList.length - 1));
-    if (
-      randomIndex === this.curColorIndex ||
-      colorList[randomIndex].toString() ===
-        this.appBackground.fill.color.toString()
-    ) {
+    if (randomIndex === this.curColorIndex) {
       if (randomIndex === colorList.length - 1) {
         randomIndex -= 1;
       } else {
