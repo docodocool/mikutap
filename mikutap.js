@@ -10,6 +10,7 @@ class MikuTap {
     this.audios = audios;
     this.bgm = bgm;
     this.curColorIndex = 0;
+    this.curBgColor = 0;
     this.app = null;
     this.appBackground = null;
     this.init();
@@ -47,8 +48,10 @@ class MikuTap {
       this.app.stage.removeChild(this.appBackground);
     }
     this.appBackground = new PIXI.Graphics();
+    const { color, index } = this.getRandomColor();
+    this.curBgColorIndex = index;
     this.appBackground
-      .beginFill(this.getRandomColor())
+      .beginFill(color)
       .drawRect(0, 0, this.app.screen.width, this.app.screen.height);
     this.appBackground.zIndex = -1;
 
@@ -60,17 +63,21 @@ class MikuTap {
       const { width, height } = this.app.screen;
       const offsetX = width / 2;
       const offsetY = height / 2;
-      this.drawRect(offsetX, offsetY);
-      this.drawSector(offsetX, offsetY);
-      this.changeBackground();
+      // this.drawRect(offsetX, offsetY);
+      // this.drawSector(offsetX, offsetY);
+      // this.drawExplodeCircle();
+      // this.drawExplodeRect();
+      this.drawRandomPolyLine();
+      // this.changeBackground();
     });
   }
   changeBackground() {
     const newBackground = new PIXI.Graphics();
-    const newBackgroundColor = this.getRandomColor();
+    const { color, index } = this.getRandomColor();
+    this.curBgColorIndex = index;
     const randomSeed = Math.random();
     const { width, height } = this.app.screen;
-    newBackground.beginFill(newBackgroundColor).drawRect(0, 0, width, height);
+    newBackground.beginFill(color).drawRect(0, 0, width, height);
     let position = { x: 0, y: 0 };
     switch (true) {
       case randomSeed < 0.25:
@@ -107,15 +114,14 @@ class MikuTap {
   getRandomColor() {
     // "0x" + Math.floor(Math.random() * 16777215).toString(16);
     let randomIndex = Math.floor(Math.random() * (colorList.length - 1));
-    if (randomIndex === this.curColorIndex) {
+    if (randomIndex === this.curColorIndex || randomIndex === this.curBgColorIndex) {
       if (randomIndex === colorList.length - 1) {
         randomIndex -= 1;
       } else {
         randomIndex += 1;
       }
     }
-    this.curColorIndex = randomIndex;
-    return colorList[randomIndex];
+    return { color: colorList[randomIndex], index: randomIndex };
   }
   drawRect(x, y) {
     let rectangle = new PIXI.Graphics();
@@ -127,10 +133,10 @@ class MikuTap {
     rectangle.endFill();
     gsap.to(rectangle, {
       rotation: Math.PI * 2,
-      width: rectangle.width * 2,
-      height: rectangle.height * 2,
+      width: rectangle.width * 4,
+      height: rectangle.height * 4,
       alpha: 0,
-      duration: 0.5,
+      duration: 0.8,
       onComplete: () => {
         this.app.stage.removeChild(rectangle);
       },
@@ -138,7 +144,8 @@ class MikuTap {
     this.app.stage.addChild(rectangle);
   }
   drawSector(x, y) {
-    const color = this.getRandomColor();
+    const { color, index } = this.getRandomColor();
+    this.curColorIndex = index;
     let startAngle = random(0, 2 * Math.PI);
     let radius = random(60, 100);
     let direction = Math.random() > 0.5 ? true : false;
@@ -175,12 +182,201 @@ class MikuTap {
         },
       });
   }
+  drawExplodeCircle() {
+    const count = Math.floor(Math.random() * 4 + 8);
+    const { color, index } = this.getRandomColor();
+    this.curColorIndex = index;
+    const { width: screenWidth, height: screenHeight } = this.app.screen;
+    let circleList = [];
+    let timeLine = gsap.timeline({
+      onComplete: () => {
+        circleList.forEach((circle) => {
+          this.app.stage.removeChild(circle);
+        });
+      },
+    });
+    const updateCircle = (circle, color, x, y, radius) => {
+      circle.clear();
+      circle.lineStyle(5, color);
+      circle.drawCircle(x, y, radius);
+    };
+    for (let i = 0; i < count; i++) {
+      let circle = new PIXI.Graphics();
+      let x = random(0, screenWidth);
+      let y = random(0, screenHeight);
+      let radius = random(10, 25);
+      updateCircle(circle, color, 0, 0, radius);
+      this.app.stage.addChild(circle);
+      timeLine
+        .add(
+          gsap.fromTo(
+            circle,
+            0.8,
+            { x: screenWidth / 2, y: screenHeight / 2, radius: 0 },
+            { x: x, y: y, radius: radius, ease: Power3.easeOut }
+          ),
+          // position(在timeline上的位置)
+          0
+        )
+        .set(circle, { alpha: 0 });
+    }
+  }
+  drawExplodeRect() {
+    const count = Math.floor(Math.random() * 4 + 8);
+    const { color, index } = this.getRandomColor();
+    this.curColorIndex = index;
+    const { width: screenWidth, height: screenHeight } = this.app.screen;
+    let rectList = [];
+    let timeLine = gsap.timeline({
+      onComplete: () => {
+        rectList.forEach((rect) => {
+          this.app.stage.removeChild(rect);
+        });
+      },
+    });
+    const updateRect = (rect, color, x, y, width, rotation) => {
+      rect.clear();
+      rect.lineStyle(5, color);
+      rect.drawRect(x, y, width, width);
+      rect.rotation = rotation;
+    };
+    for (let i = 0; i < count; i++) {
+      let rect = new PIXI.Graphics();
+      let x = random(0, screenWidth);
+      let y = random(0, screenHeight);
+      let width = random(20, 50);
+      let rotation = random(0, Math.PI * 2);
+      updateRect(rect, color, 0, 0, width, rotation);
+      this.app.stage.addChild(rect);
+      timeLine
+        .add(
+          gsap.fromTo(
+            rect,
+            0.8,
+            { x: screenWidth / 2, y: screenHeight / 2, radius: 0 },
+            { x: x, y: y, width: width, height: width, ease: Power3.easeOut }
+          ),
+          // position(在timeline上的位置)
+          0
+        )
+        .set(rect, { alpha: 0 });
+    }
+  }
+  drawRandomPolyLine() {
+    const { width: screenWidth, height: screenHeight } = this.app.screen;
+    let direction = Math.floor(Math.random() * 4);
+    let num = Math.floor(random(2, 4));
+    let points = this.generatePoints(direction, num);
+    let lineWidth = random(2, 6);
+    const { color, index } = this.getRandomColor();
+    this.curColorIndex = index;
+    let polyline = new PIXI.Graphics();
+    let mask = new PIXI.Graphics();
+    let arr = [
+      [0, 0, screenWidth, 0, screenWidth, 0, 0, 0],
+      [screenWidth, 0, screenWidth, 0, screenWidth, screenHeight, screenWidth, screenHeight],
+      [0, screenHeight, screenWidth, screenHeight, screenWidth, screenHeight, 0, screenHeight],
+      [0, 0, 0, 0, 0, screenHeight, 0, screenHeight],
+    ];
+    let updateMask = (mask) => {
+      mask.clear();
+      mask.beginFill(0, 1);
+      let points = mask.points;
+      mask.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        mask.lineTo(points[i].x, points[i].y);
+      }
+      mask.endFill();
+    };
+    let timeLine = gsap.timeline({
+      onComplete: () => {
+        this.app.stage.removeChild(polyline);
+      },
+      onUpdate: updateMask,
+      onUpdateParams: [mask],
+    });
+    let duration = 0.7;
+    let target =
+      direction % 2 === 0
+        ? {
+            duration,
+            y: direction === 0 ? screenHeight : 0,
+            ease: Power3.easeOut,
+          }
+        : {
+            duration,
+            x: direction === 1 ? 0 : screenWidth,
+            ease: Power3.easeOut,
+          };
+    let startPoint = (direction + 2) % 4;
+    mask.beginFill(0, 0);
+    mask.points = [];
+    for (let i = 0; i < 4; i++) {
+      mask.points.push({
+        x: arr[direction][i * 2],
+        y: arr[direction][i * 2 + 1],
+      });
+    }
+    polyline.points = points;
+    let drawLine = (polyline, width, color) => {
+      polyline.clear();
+      polyline.lineStyle(width, color);
+      let points = polyline.points;
+      polyline.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        polyline.lineTo(points[i].x, points[i].y);
+      }
+      polyline.endFill();
+    };
+    drawLine(polyline, lineWidth, color);
+    polyline.mask = mask;
+    this.app.stage.addChild(polyline);
+    timeLine
+      .add(gsap.to(mask.points[startPoint], target), 0)
+      .add(gsap.to(mask.points[(startPoint + 1) % 4], target), 0)
+      .add(gsap.to(mask.points[(startPoint + 2) % 4], target), 0.7)
+      .add(gsap.to(mask.points[(startPoint + 3) % 4], target), 0.7);
+  }
+  generatePoints(direction, num) {
+    let points = [];
+    const { width, height } = this.app.screen;
+    if (direction % 2 === 0) {
+      let minX = 0;
+      let maxX = width;
+      let delta = height / num;
+      points.push({ x: random(minX, maxX), y: 0 });
+      for (let i = 0; i < num; i++) {
+        let x = random(minX, maxX);
+        let y = random(i * delta, (i + 1) * delta);
+        points.push({ x: x, y: y });
+      }
+      points.push({ x: random(minX, maxX), y: height });
+      if (direction === 2) {
+        points = points.sort((a, b) => b.y - a.y);
+      }
+    } else {
+      let minY = 0;
+      let maxY = height;
+      let delta = width / num;
+      points.push({ x: 0, y: random(minY, maxY) });
+      for (let i = 0; i < num; i++) {
+        let y = random(minY, maxY);
+        let x = random(i * delta, (i + 1) * delta);
+        points.push({ x: x, y: y });
+      }
+      points.push({ x: width, y: random(minY, maxY) });
+      if (direction === 1) {
+        points = points.sort((a, b) => b.x - a.x);
+      }
+    }
+    return points;
+  }
 }
+
 const random = (min, max) => Math.random() * (max - min) + min;
 const colorList = [
-  0x88cccc, 0xfc3e77, 0xd49e9e, 0xcceeee, 0x594f57, 0x888899, 0xec5685,
-  0x312b2d, 0x8ad9ec, 0x109fb1, 0x0eaa9d, 0x9ccfe7, 0x977fd7, 0xf5a9cb,
-  0xf5d4c8, 0xffffc2, 0xfa6d6f, 0xfa8f6f,
+  0x88cccc, 0xfc3e77, 0xd49e9e, 0xcceeee, 0x594f57, 0x888899, 0xec5685, 0x312b2d, 0x8ad9ec,
+  0x109fb1, 0x0eaa9d, 0x9ccfe7, 0x977fd7, 0xf5a9cb, 0xf5d4c8, 0xffffc2, 0xfa6d6f, 0xfa8f6f,
 ];
 // @pixi/graphics-extras
 const drawRegularPolygon = (x, y, radius, sides, rotation = 0) => {
