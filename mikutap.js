@@ -67,7 +67,8 @@ class MikuTap {
       // this.drawSector(offsetX, offsetY);
       // this.drawExplodeCircle();
       // this.drawExplodeRect();
-      this.drawRandomPolyLine();
+      // this.drawRandomPolyLine();
+      this.drawRotationRect();
       // this.changeBackground();
     });
   }
@@ -336,6 +337,69 @@ class MikuTap {
       .add(gsap.to(mask.points[(startPoint + 1) % 4], target), 0)
       .add(gsap.to(mask.points[(startPoint + 2) % 4], target), 0.7)
       .add(gsap.to(mask.points[(startPoint + 3) % 4], target), 0.7);
+  }
+  drawRotationRect() {
+    const { width: screenWidth, height: screenHeight } = this.app.screen;
+    let count = Math.floor(random(6, 12));
+    let radius = random(screenHeight / 6, screenHeight / 2);
+    let width = random(10, 40);
+    const { color, index } = this.getRandomColor();
+    this.curColorIndex = index;
+    let rectList = [];
+    let time = 0;
+    let delta = 0.15;
+    let positionDelta = (Math.PI * 2) / count;
+    let selfRotation = random(0, Math.PI);
+    let rotation = random(Math.PI / 5, (Math.PI * 2) / 3);
+    let container = new PIXI.Graphics();
+    let backRotation = random(Math.PI, Math.PI * 3);
+    let tl = gsap.timeline({
+      onComplete: () => {
+        this.app.stage.removeChild(container);
+      },
+    });
+    container.beginFill(0, 0);
+    container.drawRect(0, 0, screenWidth, screenHeight);
+    // 旋转轴心
+    container.pivot.x = screenWidth / 2;
+    container.pivot.y = screenHeight / 2;
+    container.position = {
+      x: screenWidth / 2,
+      y: screenHeight / 2,
+    };
+    this.app.stage.addChild(container);
+    const drawRect = (rect, color, width, x, y) => {
+      rect.clear();
+      rect.beginFill(color);
+      rect.drawRect(0, 0, width, width);
+      rect.position = { x: x, y: y };
+      rect.pivot.x = rect.pivot.y = width / 2;
+      rect.endFill();
+    };
+    for (let i = 0; i < count; i++) {
+      let rect = new PIXI.Graphics();
+      let x = Math.sin(positionDelta * i) * radius + screenWidth / 2;
+      let y = Math.cos(positionDelta * i) * radius + screenHeight / 2;
+      drawRect(rect, color, 0, x, y);
+      container.addChild(rect);
+      rectList.push(rect);
+      tl.add(
+        gsap.to(rect, delta, {
+          width: width,
+          rotation: selfRotation,
+          onUpdate: drawRect,
+          onUpdateParams: [rect, color, width, x, y],
+        }),
+        time
+      );
+      time += delta / 3;
+    }
+    tl.add(gsap.to(container, 0.8, { rotation: rotation, ease: Bounce.easeOut }));
+    time = 0.8 + ((count - 1) * delta) / 3 + delta;
+    for (let rect of rectList) {
+      tl.add(gsap.to(rect, delta, { width: 0, rotation: backRotation }), time);
+      time += delta / 3;
+    }
   }
   generatePoints(direction, num) {
     let points = [];
