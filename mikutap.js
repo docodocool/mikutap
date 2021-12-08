@@ -68,7 +68,9 @@ class MikuTap {
       // this.drawExplodeCircle();
       // this.drawExplodeRect();
       // this.drawRandomPolyLine();
-      this.drawRotationRect();
+      // this.drawRotationRect();
+      // this.drawCircleCircle();
+      this.drawRandomCircle();
       // this.changeBackground();
     });
   }
@@ -340,9 +342,9 @@ class MikuTap {
   }
   drawRotationRect() {
     const { width: screenWidth, height: screenHeight } = this.app.screen;
-    let count = Math.floor(random(6, 12));
-    let radius = random(screenHeight / 6, screenHeight / 2);
-    let width = random(10, 40);
+    const count = Math.floor(random(6, 12));
+    const radius = random(screenHeight / 6, screenHeight / 2);
+    const width = random(10, 40);
     const { color, index } = this.getRandomColor();
     this.curColorIndex = index;
     let rectList = [];
@@ -351,9 +353,9 @@ class MikuTap {
     let positionDelta = (Math.PI * 2) / count;
     let selfRotation = random(0, Math.PI);
     let rotation = random(Math.PI / 5, (Math.PI * 2) / 3);
-    let container = new PIXI.Graphics();
+    const container = new PIXI.Graphics();
     let backRotation = random(Math.PI, Math.PI * 3);
-    let tl = gsap.timeline({
+    const timeLine = gsap.timeline({
       onComplete: () => {
         this.app.stage.removeChild(container);
       },
@@ -383,7 +385,7 @@ class MikuTap {
       drawRect(rect, color, 0, x, y);
       container.addChild(rect);
       rectList.push(rect);
-      tl.add(
+      timeLine.add(
         gsap.to(rect, delta, {
           width: width,
           rotation: selfRotation,
@@ -394,10 +396,140 @@ class MikuTap {
       );
       time += delta / 3;
     }
-    tl.add(gsap.to(container, 0.8, { rotation: rotation, ease: Bounce.easeOut }));
+    timeLine.add(gsap.to(container, 0.8, { rotation: rotation, ease: Bounce.easeOut }));
     time = 0.8 + ((count - 1) * delta) / 3 + delta;
     for (let rect of rectList) {
-      tl.add(gsap.to(rect, delta, { width: 0, rotation: backRotation }), time);
+      timeLine.add(gsap.to(rect, delta, { width: 0, rotation: backRotation }), time);
+      time += delta / 3;
+    }
+  }
+  drawCircleCircle() {
+    const { width: screenWidth, height: screenHeight } = this.app.screen;
+    const num = Math.floor(Math.random() * 6 + 6);
+    const radius = random(screenHeight / 6, screenHeight / 2);
+    const width = random(10, 30);
+    const { color, index } = this.getRandomColor();
+    this.curColorIndex = index;
+    let circles = [];
+    let time = 0;
+    const container = new PIXI.Graphics();
+    let positionDelta = (Math.PI * 2) / num;
+    let delta = 0.15;
+    const timeLine = gsap.timeline({
+      onComplete: () => {
+        this.app.stage.removeChild(container);
+      },
+    });
+    container.beginFill(0, 0);
+    container.drawRect(0, 0, screenWidth, screenHeight);
+    this.app.stage.addChild(container);
+    const drawCircle = (circle, color) => {
+      circle.clear();
+      circle.beginFill(color);
+      circle.drawCircle(0, 0, circle._radius);
+      circle.position = { x: circle.pX, y: circle.pY };
+      circle.endFill();
+    };
+    for (let i = 0; i < num; i++) {
+      let circle = new PIXI.Graphics();
+      let x = Math.sin(positionDelta * i) * radius + screenWidth / 2;
+      let y = Math.cos(positionDelta * i) * radius + screenHeight / 2;
+      circle._radius = 0;
+      circle.pX = x;
+      circle.pY = y;
+      drawCircle(circle, color);
+      container.addChild(circle);
+      circles.push(circle);
+      timeLine.add(
+        gsap.to(circle, {
+          duration: delta,
+          _radius: width,
+          onUpdate: drawCircle,
+          onUpdateParams: [circle, color],
+          ease: Bounce.easeOut,
+        }),
+        time
+      );
+      time += delta / 3;
+    }
+    time = ((num - 1) * delta) / 3 + delta;
+    for (let circle of circles) {
+      let newX = random(0, container.width);
+      let newY = random(0, container.height);
+      timeLine.add(
+        gsap.to(circle, {
+          duration: 0.3,
+          _radius: 0,
+          pX: newX,
+          pY: newY,
+          onUpdate: drawCircle,
+          onUpdateParams: [circle, color],
+        }),
+        time
+      );
+      time += 0.3 / 3;
+    }
+  }
+  drawRandomCircle() {
+    const { width: screenWidth, height: screenHeight } = this.app.screen;
+    let num = Math.floor(Math.random() * 5 + 5);
+    let circles = [];
+    let container = new PIXI.Graphics();
+    let time = 0;
+    let delta = 0.3;
+    let timeLine = gsap.timeline({
+      onComplete: () => {
+        this.app.stage.removeChild(container);
+      },
+    });
+    container.beginFill(0, 0);
+    container.drawRect(0, 0, screenWidth, screenHeight);
+    this.app.stage.addChild(container);
+    const drawCircle = (circle, color) => {
+      circle.clear();
+      circle.beginFill(color);
+      circle.drawCircle(0, 0, circle._radius);
+      circle.position = { x: circle.pX, y: circle.pY };
+      circle.endFill();
+    };
+    for (let i = 0; i < num; i++) {
+      const circle = new PIXI.Graphics();
+      let radius = random(15, 45);
+      const { color, index } = this.getRandomColor();
+      this.curColorIndex = index;
+      let x = random(0, screenWidth);
+      let y = random(0, screenHeight);
+      circle.color = color;
+      circle._radius = 0;
+      circle.pX = x;
+      circle.pY = y;
+      drawCircle(circle, circle.color);
+      container.addChild(circle);
+      circles.push(circle);
+      timeLine.add(
+        gsap.to(circle, {
+          duration: delta,
+          _radius: radius,
+          onUpdate: drawCircle,
+          onUpdateParams: [circle, circle.color],
+          ease: Bounce.easeOut,
+        }),
+        time
+      );
+      time += delta / 3;
+    }
+    time = ((num - 1) * delta) / 3 + delta + 0.2;
+    for (let circle of circles) {
+      timeLine.add(
+        gsap.to(circle, {
+          duration: delta,
+          _radius: 0,
+          onUpdate: drawCircle,
+          onUpdateParams: [circle, circle.color],
+          ease: Bounce.easeOut,
+        }),
+        time
+      );
       time += delta / 3;
     }
   }
