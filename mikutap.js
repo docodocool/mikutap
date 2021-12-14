@@ -13,6 +13,7 @@ class MikuTap {
     this.curBgColor = 0;
     this.app = null;
     this.appBackground = null;
+    this.curShapeIndex = null;
     this.init();
   }
 
@@ -59,68 +60,141 @@ class MikuTap {
     console.log("appbg: ", this.appBackground);
   }
   bindEvent() {
+    const shapeList = [
+      "Rect",
+      "Sector",
+      "ExplodeCircle",
+      "ExplodeRect",
+      "RandomPolyLine",
+      "RotationRect",
+      "CircleCircle",
+      "RandomCircle",
+      "RandomRect",
+      "RandomPolygon",
+      "ZoomOutPolygon",
+      "Helix",
+      "Cross",
+      "CircleLine",
+      "RectLine",
+    ];
     this.app.view.addEventListener("mousedown", (e) => {
-      this.drawRect();
-      this.drawSector();
-      this.drawExplodeCircle();
-      this.drawExplodeRect();
-      this.drawRandomPolyLine();
-      this.drawRotationRect();
-      this.drawCircleCircle();
-      this.drawRandomCircle();
-      this.drawRandomRect();
-      this.drawRandomPolygon();
-      this.drawZoomOutPolygon();
-      this.drawHelix();
-      this.drawCross();
-      this.drawCircleLine();
-      this.drawRectLine();
-      // this.changeBackground();
+      let randomIndex = Math.floor(random(0, shapeList.length));
+      if (randomIndex === this.curShapeIndex) {
+        if (randomIndex === shapeList.length - 1) {
+          randomIndex -= 1;
+        } else {
+          randomIndex += 1;
+        }
+      }
+      this.curShapeIndex = randomIndex;
+      this[`draw${shapeList[randomIndex]}`]();
+      this.changeBackground();
     });
   }
   changeBackground() {
-    const newBackground = new PIXI.Graphics();
-    const { color, index: colorIndex } = this.getRandomColor();
+    if (random(0, 10) < 8) return;
+    const mask = new PIXI.Graphics();
+    const { color: newBgColor, index: colorIndex } = this.getRandomColor();
     this.curBgColorIndex = colorIndex;
-    const randomSeed = Math.random();
-    const { width, height } = this.app.screen;
-    newBackground.beginFill(color).drawRect(0, 0, width, height);
-    let position = { x: 0, y: 0 };
-    switch (true) {
-      case randomSeed < 0.25:
-        position = { x: -2 * width, y: -2 * height };
-        break;
-      case randomSeed >= 0.25 && randomSeed < 0.5:
-        position = { x: 2 * width, y: -2 * height };
-        break;
-      case randomSeed >= 0.5 && randomSeed < 0.75:
-        position = { x: -2 * width, y: 2 * height };
-        break;
-      case randomSeed >= 0.75:
-        position = { x: 2 * width, y: 2 * height };
-        break;
+    // 0, 1, 2, 3
+    const randomSeed = Math.floor(random(0, 4));
+    const { width: screenWidth, height: screenHeight } = this.app.screen;
+    if (random(0, 10) > 4) {
+      // 方块飞入
+      mask.beginFill(newBgColor).drawRect(0, 0, screenWidth, screenHeight);
+      let position = { x: 0, y: 0 };
+      switch (randomSeed) {
+        case 0:
+          position = { x: -2 * screenWidth, y: -2 * screenHeight };
+          break;
+        case 1:
+          position = { x: 2 * screenWidth, y: -2 * screenHeight };
+          break;
+        case 2:
+          position = { x: -2 * screenWidth, y: 2 * screenHeight };
+          break;
+        case 3:
+          position = { x: 2 * screenWidth, y: 2 * screenHeight };
+          break;
+      }
+      mask.position = position;
+      mask.zIndex = -1;
+      this.app.stage.addChild(mask);
+      const rotation = random(0, 2 * Math.PI);
+      const timeLine = gsap.timeline();
+      timeLine.set(mask, { rotation }).to(mask, {
+        duration: 0.8,
+        rotation: 0,
+        x: 0,
+        y: 0,
+        onComplete: () => {
+          this.appBackground.beginFill(newBgColor).drawRect(0, 0, screenWidth, screenHeight);
+          this.app.stage.removeChild(mask);
+        },
+      });
+    } else {
+      // 多边形覆盖
+      const direction = randomSeed;
+      const getRandomPoints = (start, end) => {
+        let num = Math.floor(random(1, 4));
+        let delta = Math.min(screenWidth, screenHeight) / 5;
+        let points = [];
+        // 水平
+        if (start.y === end.y) {
+          for (let i = 0; i < num; i++) {
+            points.push({
+              x: random((screenWidth / num) * i, (screenWidth / num) * (i + 1)),
+              y: random(Math.max(start.y - delta, 0), start.y + delta),
+            });
+          }
+        }
+        return points;
+      };
+      let points = [
+        { x: screenWidth, y: 0 },
+        { x: screenWidth, y: 0 },
+        { x: 0, y: 0 },
+        { x: 0, y: 0 },
+        ...getRandomPoints({ x: 0, y: 0 }, { x: screenWidth, y: 0 }),
+      ];
+      let target = points.map((point, index) => {
+        if (![1, 2].includes(index)) {
+          return Object.assign({}, point, { y: screenHeight });
+        } else {
+          return point;
+        }
+      });
+      const rotation = (direction * Math.PI * 2) / 4;
+      mask.points = points;
+      mask.pivot = { x: screenWidth / 2, y: screenHeight / 2 };
+      mask.zIndex = -1;
+      mask.rotation = rotation;
+      this.app.stage.addChild(mask);
+      const updateMask = () => {
+        mask.clear();
+        mask.beginFill(newBgColor);
+        mask.position = { x: screenWidth / 2, y: screenHeight / 2 };
+        mask.drawPolygon(mask.points);
+        mask.endFill();
+      };
+      const timeLine = gsap.timeline({
+        onUpdate: updateMask,
+        onComplete: () => {
+          this.appBackground.beginFill(newBgColor).drawRect(0, 0, screenWidth, screenHeight);
+          this.app.stage.removeChild(mask);
+        },
+      });
+      for (let i = 0; i < mask.points.length; i++) {
+        timeLine.add(
+          gsap.to(mask.points[i], { duration: 1, ease: Power3.easeOut, y: target[i].y }),
+          0
+        );
+      }
     }
-    newBackground.position = position;
-    newBackground.zIndex = -1;
-    this.app.stage.addChild(newBackground);
-    const rotation = random(0, 2 * Math.PI);
-    const timeLine = gsap.timeline();
-    timeLine.set(newBackground, { rotation }).to(newBackground, {
-      duration: 0.8,
-      rotation: 0,
-      x: 0,
-      y: 0,
-      onComplete: () => {
-        this.appBackground
-          .beginFill(newBackgroundColor)
-          .drawRect(0, 0, this.app.screen.width, this.app.screen.height);
-        this.app.stage.removeChild(newBackground);
-      },
-    });
   }
   getRandomColor() {
     // "0x" + Math.floor(Math.random() * 16777215).toString(16);
-    let randomIndex = Math.floor(Math.random() * (colorList.length - 1));
+    let randomIndex = Math.floor(Math.random() * colorList.length);
     if (randomIndex === this.curColorIndex || randomIndex === this.curBgColorIndex) {
       if (randomIndex === colorList.length - 1) {
         randomIndex -= 1;
