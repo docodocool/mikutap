@@ -1,6 +1,6 @@
 // import * as PIXI from "./resources/pixi.min.js";
 // import gsap from "./resources/gsap.min.js";
-console.log("PIXI: ", PIXI);
+import sounds from "./resources/sounds.js";
 
 class MikuTap {
   constructor(container, colors, animations, audios, bgm) {
@@ -14,6 +14,8 @@ class MikuTap {
     this.app = null;
     this.appBackground = null;
     this.curShapeIndex = null;
+    this.isMouseDown = false;
+    this.tileList = [];
     this.init();
   }
 
@@ -27,17 +29,19 @@ class MikuTap {
     this.initView();
     this.initBackground();
     this.bindEvent();
+    this.intiLoadingScreen();
+    this.initAudios();
+    // this.drawTiles();
   }
   initApp() {
     this.app = new PIXI.Application({
-      width: 600,
-      height: 600,
+      width: window.innerWidth,
+      height: window.innerHeight,
       autoDensity: true,
       // 抗锯齿
       antialias: true,
       resolution: devicePixelRatio,
     });
-    console.log("app: ", this.app);
   }
   initView() {
     if (!this.app) throw new Error("fail to get app instance");
@@ -57,38 +61,82 @@ class MikuTap {
     this.appBackground.zIndex = -1;
 
     this.app.stage.addChild(this.appBackground);
-    console.log("appbg: ", this.appBackground);
   }
   bindEvent() {
-    const shapeList = [
-      "Rect",
-      "Sector",
-      "ExplodeCircle",
-      "ExplodeRect",
-      "RandomPolyLine",
-      "RotationRect",
-      "CircleCircle",
-      "RandomCircle",
-      "RandomRect",
-      "RandomPolygon",
-      "ZoomOutPolygon",
-      "Helix",
-      "Cross",
-      "CircleLine",
-      "RectLine",
-    ];
-    this.app.view.addEventListener("mousedown", (e) => {
-      let randomIndex = Math.floor(random(0, shapeList.length));
-      if (randomIndex === this.curShapeIndex) {
-        if (randomIndex === shapeList.length - 1) {
-          randomIndex -= 1;
-        } else {
-          randomIndex += 1;
-        }
+    window.onresize = () => {
+      this.app.view.style.width = window.innerWidth + "px";
+      this.app.view.style.height = window.innerHeight + "px";
+      this.app.renderer.resize(window.innerWidth, window.innerHeight);
+      this.appBackground.drawRect(0, 0, window.innerWidth, window.innerHeight);
+      this.drawTiles();
+    };
+  }
+  intiLoadingScreen() {
+    const { width: screenWidth, height: screenHeight } = this.app.screen;
+    let loaded = 0;
+    // +1 is the bgm, 这里先不+1
+    let totalResourcesNum = Object.keys(sounds).length;
+    let step = screenWidth / totalResourcesNum;
+    const progressBar = new PIXI.Graphics()
+      .beginFill(0xffffff, 1)
+      .drawRect(-screenWidth, screenHeight / 2, screenWidth, 10);
+
+    const style = new PIXI.TextStyle({
+      fontWeight: "lighter",
+      fill: "#fff",
+      fontSize: 24,
+    });
+    const text = new PIXI.Text("Loading", style);
+    text.x = screenWidth / 2 - 40;
+    text.y = screenHeight / 2 - 40;
+
+    gsap.to([text, progressBar], {
+      duration: 0.5,
+      alpha: 0.4,
+      yoyo: true,
+      repeat: -1,
+      delay: 0.4,
+    });
+
+    this.app.stage.addChild(progressBar);
+    this.app.stage.addChild(text);
+
+    PIXI.Loader.shared.onProgress.add(async () => {
+      loaded++;
+      const length = step * loaded;
+      gsap.to(progressBar, {
+        duration: 0.5,
+        x: length,
+      });
+
+      if (loaded === totalResourcesNum) {
+        gsap.to([progressBar, text], {
+          duration: 0.5,
+          alpha: 0,
+          onComplete: () => {
+            this.app.stage.removeChild(progressBar);
+            this.app.stage.removeChild(text);
+            this.drawTiles();
+          },
+        });
       }
-      this.curShapeIndex = randomIndex;
-      this[`draw${shapeList[randomIndex]}`]();
-      this.changeBackground();
+    });
+  }
+  initAudios() {
+    // PIXI.Loader.shared.add("bgm", this.bgm);
+    for (let name in sounds) {
+      PIXI.Loader.shared.add(name, sounds[name]);
+    }
+
+    PIXI.Loader.shared.load((loader, resources) => {
+      return;
+      if (!resources.bgm) throw new Error("fail to load resources");
+      resources.bgm.sound.loop = true;
+      resources.bgm.sound.volume = 0.7;
+
+      resources.bgm.sound.play();
+      this.bgmCtx = resources.bgm.sound.context.audioContext;
+      this.drawTiles();
     });
   }
   changeBackground() {
@@ -135,6 +183,7 @@ class MikuTap {
     } else {
       // 多边形覆盖
       const direction = randomSeed;
+      const maxWidth = Math.max(screenWidth, screenHeight);
       const getRandomPoints = (start, end) => {
         let num = Math.floor(random(1, 4));
         let delta = Math.min(screenWidth, screenHeight) / 5;
@@ -143,7 +192,7 @@ class MikuTap {
         if (start.y === end.y) {
           for (let i = 0; i < num; i++) {
             points.push({
-              x: random((screenWidth / num) * i, (screenWidth / num) * (i + 1)),
+              x: random((maxWidth / num) * i, (maxWidth / num) * (i + 1)),
               y: random(Math.max(start.y - delta, 0), start.y + delta),
             });
           }
@@ -151,36 +200,36 @@ class MikuTap {
         return points;
       };
       let points = [
-        { x: screenWidth, y: 0 },
-        { x: screenWidth, y: 0 },
+        { x: maxWidth, y: 0 },
+        { x: maxWidth, y: 0 },
         { x: 0, y: 0 },
         { x: 0, y: 0 },
-        ...getRandomPoints({ x: 0, y: 0 }, { x: screenWidth, y: 0 }),
+        ...getRandomPoints({ x: 0, y: 0 }, { x: maxWidth, y: 0 }),
       ];
       let target = points.map((point, index) => {
         if (![1, 2].includes(index)) {
-          return Object.assign({}, point, { y: screenHeight });
+          return Object.assign({}, point, { y: maxWidth });
         } else {
           return point;
         }
       });
       const rotation = (direction * Math.PI * 2) / 4;
       mask.points = points;
-      mask.pivot = { x: screenWidth / 2, y: screenHeight / 2 };
+      mask.pivot = { x: maxWidth / 2, y: maxWidth / 2 };
       mask.zIndex = -1;
       mask.rotation = rotation;
       this.app.stage.addChild(mask);
       const updateMask = () => {
         mask.clear();
         mask.beginFill(newBgColor);
-        mask.position = { x: screenWidth / 2, y: screenHeight / 2 };
+        mask.position = { x: maxWidth / 2, y: maxWidth / 2 };
         mask.drawPolygon(mask.points);
         mask.endFill();
       };
       const timeLine = gsap.timeline({
         onUpdate: updateMask,
         onComplete: () => {
-          this.appBackground.beginFill(newBgColor).drawRect(0, 0, screenWidth, screenHeight);
+          this.appBackground.beginFill(newBgColor).drawRect(0, 0, maxWidth, maxWidth);
           this.app.stage.removeChild(mask);
         },
       });
@@ -191,6 +240,94 @@ class MikuTap {
         );
       }
     }
+  }
+  drawTiles() {
+    if (this.tileList.length) {
+      this.tileList.forEach((tile) => {
+        this.app.stage.removeChild(tile);
+      });
+      this.tileList = [];
+    }
+    // 4*8=32, @media(max-width: 790px)
+    const { width: screenWidth, height: screenHeight } = this.app.screen;
+    let cols = 0;
+    let rows = 0;
+    if (screenWidth >= 790) {
+      cols = 8;
+      rows = 4;
+    } else {
+      cols = 4;
+      rows = 8;
+    }
+    let tileWidth = screenWidth / cols;
+    let tileHeight = screenHeight / rows;
+    for (let col = 0; col < cols; col++) {
+      for (let row = 0; row < rows; row++) {
+        const tile = new PIXI.Graphics()
+          .beginFill(0xffffff, 1)
+          .drawRect(tileWidth * col, tileHeight * row, tileWidth, tileHeight);
+        tile.alpha = 0;
+        // 可点击
+        tile.interactive = true;
+        // 鼠标指针变为pointer
+        tile.buttonMode = true;
+        // 点击区域
+        tile.hitArea = new PIXI.Rectangle(tileWidth * col, tileHeight * row, tileWidth, tileHeight);
+        const btnClick = () => {
+          if (!this.isMouseDown) return;
+          this.playAnimation();
+          gsap.to(tile, { duration: 0.05, alpha: 0.5 });
+          gsap.to(tile, { duration: 0.5, delay: 0.05, alpha: 0 });
+          const keyIndex = row * cols + col;
+          this.playSound(keyIndex);
+        };
+        // pointer事件包括鼠标事件与触屏事件
+        tile.on("pointerdown", () => {
+          this.isMouseDown = true;
+          btnClick();
+        });
+        tile.on("pointerup", () => {
+          this.isMouseDown = false;
+        });
+        tile.on("pointerover", () => btnClick());
+        this.tileList.push(tile);
+        this.app.stage.addChild(tile);
+      }
+    }
+  }
+  playAnimation() {
+    const shapeList = [
+      "Rect",
+      "Sector",
+      "ExplodeCircle",
+      "ExplodeRect",
+      "RandomPolyLine",
+      "RotationRect",
+      "CircleCircle",
+      "RandomCircle",
+      "RandomRect",
+      "RandomPolygon",
+      "ZoomOutPolygon",
+      "Helix",
+      "Cross",
+      "CircleLine",
+      "RectLine",
+    ];
+    let randomIndex = Math.floor(random(0, shapeList.length));
+    if (randomIndex === this.curShapeIndex) {
+      if (randomIndex === shapeList.length - 1) {
+        randomIndex -= 1;
+      } else {
+        randomIndex += 1;
+      }
+    }
+    this.curShapeIndex = randomIndex;
+    this[`draw${shapeList[randomIndex]}`]();
+    this.changeBackground();
+  }
+  playSound(index) {
+    console.log("playSound: ", PIXI.Loader.shared.resources);
+    // PIXI.Loader.shared.resources[`${index}.mp3`].sound.play();
   }
   getRandomColor() {
     // "0x" + Math.floor(Math.random() * 16777215).toString(16);
@@ -1195,3 +1332,6 @@ const drawRegularPolygon = (x, y, radius, sides, rotation = 0) => {
   }
   return PIXI.drawPolygon(polygon);
 };
+
+window.MikuTap = MikuTap;
+export default MikuTap;

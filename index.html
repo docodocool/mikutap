@@ -15,9 +15,12 @@
     body {
       width: 100vw;
       height: 100vh;
+      overflow: hidden;
     }
     #container {
       position: relative;
+      width: 100%;
+      height: 100%;
     }
   </style>
   <body>
@@ -25,7 +28,7 @@
   </body>
   <script src="./resources/pixi.min.js"></script>
   <script src="./resources/gsap.min.js"></script>
-  <script src="mikutap.js"></script>
+  <script type="module" src="mikutap.js"></script>
   <script>
     window.addEventListener("load", () => {
       const el = document.querySelector("#container");
