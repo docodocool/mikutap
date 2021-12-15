@@ -2,6 +2,7 @@
 // import gsap from "./resources/gsap-core.js";
 // import "./resources/pixi-sound.js";
 import sounds from "./resources/sounds.js";
+import bgm from "./resources/bgm.js";
 
 class MikuTap {
   constructor(container, colors, animations, audios, bgm) {
@@ -17,6 +18,7 @@ class MikuTap {
     this.curShapeIndex = null;
     this.isMouseDown = false;
     this.tileList = [];
+    this.throttleT = 0;
     this.init();
   }
 
@@ -37,8 +39,8 @@ class MikuTap {
   initApp() {
     console.log("PIXI: ", PIXI);
     this.app = new PIXI.Application({
-      width: window.innerWidth,
-      height: window.innerHeight,
+      width: this.appWrapper.clientWidth,
+      height: this.appWrapper.clientHeight,
       autoDensity: true,
       // 抗锯齿
       antialias: true,
@@ -66,10 +68,10 @@ class MikuTap {
   }
   bindEvent() {
     window.onresize = () => {
-      this.app.view.style.width = window.innerWidth + "px";
-      this.app.view.style.height = window.innerHeight + "px";
-      this.app.renderer.resize(window.innerWidth, window.innerHeight);
-      this.appBackground.drawRect(0, 0, window.innerWidth, window.innerHeight);
+      this.app.view.style.width = this.appWrapper.clientWidth + "px";
+      this.app.view.style.height = this.appWrapper.clientHeight + "px";
+      this.app.renderer.resize(this.appWrapper.clientWidth, this.appWrapper.clientHeight);
+      this.appBackground.drawRect(0, 0, this.appWrapper.clientWidth, this.appWrapper.clientHeight);
       this.drawTiles();
     };
   }
@@ -125,7 +127,7 @@ class MikuTap {
     });
   }
   initAudios() {
-    // PIXI.Loader.shared.add("bgm", this.bgm);
+    PIXI.Loader.shared.add("bgm", bgm);
     for (let name in sounds) {
       PIXI.Loader.shared.add(name, sounds[name]);
     }
@@ -142,7 +144,7 @@ class MikuTap {
     });
   }
   changeBackground() {
-    if (random(0, 10) < 8) return;
+    if (random(0, 100) < 80) return;
     const mask = new PIXI.Graphics();
     const { color: newBgColor, index: colorIndex } = this.getRandomColor();
     this.curBgColorIndex = colorIndex;
@@ -325,7 +327,10 @@ class MikuTap {
     }
     this.curShapeIndex = randomIndex;
     this[`draw${shapeList[randomIndex]}`]();
-    this.changeBackground();
+    if (+new Date() > this.throttleT + 1500) {
+      this.changeBackground();
+      this.throttleT = +new Date();
+    }
   }
   playSound(index) {
     PIXI.Loader.shared.resources[`${index}.mp3`].sound.play();
