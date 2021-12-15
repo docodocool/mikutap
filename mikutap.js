@@ -1,5 +1,6 @@
 // import * as PIXI from "./resources/pixi.min.js";
-// import gsap from "./resources/gsap.min.js";
+// import gsap from "./resources/gsap-core.js";
+// import "./resources/pixi-sound.js";
 import sounds from "./resources/sounds.js";
 
 class MikuTap {
@@ -34,6 +35,7 @@ class MikuTap {
     // this.drawTiles();
   }
   initApp() {
+    console.log("PIXI: ", PIXI);
     this.app = new PIXI.Application({
       width: window.innerWidth,
       height: window.innerHeight,
@@ -171,7 +173,7 @@ class MikuTap {
       const rotation = random(0, 2 * Math.PI);
       const timeLine = gsap.timeline();
       timeLine.set(mask, { rotation }).to(mask, {
-        duration: 0.8,
+        duration: 1.5,
         rotation: 0,
         x: 0,
         y: 0,
@@ -186,7 +188,7 @@ class MikuTap {
       const maxWidth = Math.max(screenWidth, screenHeight);
       const getRandomPoints = (start, end) => {
         let num = Math.floor(random(1, 4));
-        let delta = Math.min(screenWidth, screenHeight) / 5;
+        let delta = Math.min(screenWidth, screenHeight) / 2;
         let points = [];
         // 水平
         if (start.y === end.y) {
@@ -235,7 +237,7 @@ class MikuTap {
       });
       for (let i = 0; i < mask.points.length; i++) {
         timeLine.add(
-          gsap.to(mask.points[i], { duration: 1, ease: Power3.easeOut, y: target[i].y }),
+          gsap.to(mask.points[i], { duration: 1.5, ease: Power3.easeOut, y: target[i].y }),
           0
         );
       }
@@ -326,8 +328,7 @@ class MikuTap {
     this.changeBackground();
   }
   playSound(index) {
-    console.log("playSound: ", PIXI.Loader.shared.resources);
-    // PIXI.Loader.shared.resources[`${index}.mp3`].sound.play();
+    PIXI.Loader.shared.resources[`${index}.mp3`].sound.play();
   }
   getRandomColor() {
     // "0x" + Math.floor(Math.random() * 16777215).toString(16);
@@ -367,7 +368,7 @@ class MikuTap {
     const { color, index: colorIndex } = this.getRandomColor();
     this.curColorIndex = colorIndex;
     let startAngle = random(0, 2 * Math.PI);
-    let radius = random(60, 100);
+    let radius = random(100, 300);
     let direction = Math.random() > 0.5 ? true : false;
     const updateSector = (sector, color, radius, direction) => {
       sector.clear();
