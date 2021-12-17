@@ -1,0 +1,8 @@
+{
+  "name": "mikutap",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:docodocool/mikutap.git",
+  "author": "docodocool <1045606768@qq.com>",
+  "license": "MIT"
+}

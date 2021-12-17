@@ -5,12 +5,8 @@ import sounds from "./resources/sounds.js";
 import bgm from "./resources/bgm.js";
 
 class MikuTap {
-  constructor(container, colors, animations, audios, bgm) {
+  constructor(container) {
     this.appWrapper = container;
-    this.colors = colors;
-    this.animations = animations;
-    this.audios = audios;
-    this.bgm = bgm;
     this.curColorIndex = 0;
     this.curBgColor = 0;
     this.app = null;
