@@ -74,8 +74,7 @@ class MikuTap {
   intiLoadingScreen() {
     const { width: screenWidth, height: screenHeight } = this.app.screen;
     let loaded = 0;
-    // +1 is the bgm, 这里先不+1
-    let totalResourcesNum = Object.keys(sounds).length;
+    let totalResourcesNum = [...Object.keys(sounds), ...Object.keys(bgm)].length;
     let step = screenWidth / totalResourcesNum;
     const progressBar = new PIXI.Graphics()
       .beginFill(0xffffff, 1)
@@ -123,14 +122,27 @@ class MikuTap {
     });
   }
   initAudios() {
-    PIXI.Loader.shared.add("bgm", bgm);
-    for (let name in sounds) {
-      PIXI.Loader.shared.add(name, sounds[name]);
+    for (let name in bgm) {
+      PIXI.Loader.shared.add(`bgm${name}`, bgm[name]);
     }
+    for (let name in sounds) {
+      PIXI.Loader.shared.add(`sound${name}`, sounds[name]);
+    }
+    console.log(PIXI.Loader.shared.resources);
 
     PIXI.Loader.shared.load((loader, resources) => {
+      const melody = "3443443443443434" + "5665665665665656" + "7887887887887878";
+      +"9119119119119191";
+      let cur = 0;
+      setInterval(() => {
+        // this.playBgm(melody[cur]);
+        if (cur % 4 === 0) {
+          // this.playBgm(10);
+        }
+        cur += 1;
+        if (cur === melody.length) cur = 0;
+      }, 210);
       return;
-      if (!resources.bgm) throw new Error("fail to load resources");
       resources.bgm.sound.loop = true;
       resources.bgm.sound.volume = 0.7;
 
@@ -291,6 +303,7 @@ class MikuTap {
         });
         tile.on("pointerover", () => btnClick());
         this.tileList.push(tile);
+        tile.zIndex = 10;
         this.app.stage.addChild(tile);
       }
     }
@@ -328,8 +341,12 @@ class MikuTap {
       this.throttleT = +new Date();
     }
   }
+  playBgm(index) {
+    console.log(index);
+    PIXI.Loader.shared.resources[`bgm${index}.mp3`].sound.play();
+  }
   playSound(index) {
-    PIXI.Loader.shared.resources[`${index}.mp3`].sound.play();
+    PIXI.Loader.shared.resources[`sound${index}.mp3`].sound.play();
   }
   getRandomColor() {
     // "0x" + Math.floor(Math.random() * 16777215).toString(16);
