@@ -14,7 +14,9 @@ class MikuTap {
     this.curShapeIndex = null;
     this.isMouseDown = false;
     this.tileList = [];
-    this.throttleT = 0;
+    this.throttleChangeBackground = 0;
+    this.throttleBtnClick = 0;
+    this.toggleBgm = false;
     this.init();
   }
 
@@ -131,17 +133,18 @@ class MikuTap {
     console.log(PIXI.Loader.shared.resources);
 
     PIXI.Loader.shared.load((loader, resources) => {
-      const melody = "3443443443443434" + "5665665665665656" + "7887887887887878";
-      +"9119119119119191";
+      const track =
+        "3443443443443434" + "5665665665665656" + "7887887887887878" + "9119119119119191";
+      // const melody = Array.from({ length: 64 }, (v, k) => [0, 1, 2, 1][k % 4]);
+      const melody = "0121".repeat(64).split("");
       let cur = 0;
       setInterval(() => {
-        // this.playBgm(melody[cur]);
-        if (cur % 4 === 0) {
-          // this.playBgm(10);
-        }
+        if (!this.toggleBgm) return;
+        this.playBgm(track[cur] === "1" ? "10" : track[cur]);
+        this.playBgm(melody[cur]);
         cur += 1;
-        if (cur === melody.length) cur = 0;
-      }, 210);
+        if (cur === track.length) cur = 0;
+      }, 215);
       return;
       resources.bgm.sound.loop = true;
       resources.bgm.sound.volume = 0.7;
@@ -290,6 +293,10 @@ class MikuTap {
           this.playAnimation();
           gsap.to(tile, { duration: 0.05, alpha: 0.5 });
           gsap.to(tile, { duration: 0.5, delay: 0.05, alpha: 0 });
+          const curTime = +new Date();
+          if (curTime - this.throttleBtnClick < 150) return;
+          console.log("curTime: ", curTime - this.throttleBtnClick);
+          this.throttleBtnClick = curTime;
           const keyIndex = row * cols + col;
           this.playSound(keyIndex);
         };
@@ -336,13 +343,12 @@ class MikuTap {
     }
     this.curShapeIndex = randomIndex;
     this[`draw${shapeList[randomIndex]}`]();
-    if (+new Date() > this.throttleT + 1500) {
+    if (+new Date() > this.throttleChangeBackground + 1500) {
       this.changeBackground();
-      this.throttleT = +new Date();
+      this.throttleChangeBackground = +new Date();
     }
   }
   playBgm(index) {
-    console.log(index);
     PIXI.Loader.shared.resources[`bgm${index}.mp3`].sound.play();
   }
   playSound(index) {
@@ -1333,6 +1339,24 @@ class MikuTap {
     return points;
   }
 }
+
+const throttle = function (func, wait = 100) {
+  let timerId;
+  let start = Date.now();
+  return function (...args) {
+    const curr = Date.now();
+    clearTimeout(timerId);
+    if (curr - start >= wait) {
+      // 可以保证func一定会被执行
+      func.apply(this, args);
+      start = curr;
+    } else {
+      timerId = setTimeout(() => {
+        func.apply(this, args);
+      }, wait);
+    }
+  };
+};
 
 const random = (min, max) => Math.random() * (max - min) + min;
 const colorList = [
